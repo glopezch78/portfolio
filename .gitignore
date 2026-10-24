@@ -1,0 +1,7 @@
+# lab state and secrets - never commit
+*.env
+*.pem
+*.log
+*.zip
+*.iso
+.DS_Store
