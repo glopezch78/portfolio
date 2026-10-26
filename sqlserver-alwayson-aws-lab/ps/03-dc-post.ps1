@@ -19,4 +19,4 @@ if (-not (Get-SmbShare -Name witness -ErrorAction SilentlyContinue)) {
     New-SmbShare -Name witness -Path C:\witness -FullAccess "$Netbios\Domain Admins", "$Netbios\Domain Computers" | Out-Null
 }
 icacls C:\witness /grant "${Netbios}\Domain Computers:(OI)(CI)F" "${Netbios}\Domain Admins:(OI)(CI)F" | Out-Null
-Write-Output 'DC ready: DNS forwarder configured and \\DC01\witness share created'
+Write-Output "DC ready: DNS forwarder configured and \\$DcName\witness share created"

@@ -12,6 +12,10 @@
 #
 # Requirements: AWS CLI v2 configured, EC2/IAM/SSM permissions, curl, openssl, base64.
 # Required:  SQL_ISO_URL   pre-signed URL of the SQL Server Developer ISO (see README)
+# Names (all optional; chosen at 'up' and remembered for resume/status/failover):
+#            CLUSTER_NAME (SQLCL), NODE1_NAME (SQLNODE1), NODE2_NAME (SQLNODE2),
+#            AG_NAME (AG1), LISTENER_NAME (AGL), DC_NAME (DC01)
+#            Rules: 1-15 chars (NetBIOS), letters/digits/hyphen, must be different from each other.
 # Optional:  AWS_DEFAULT_REGION (default us-east-1), DC_TYPE, SQL_TYPE (instance types),
 #            MY_CIDR (your client IP as x.x.x.x/32; use it when running from CloudShell,
 #            otherwise the CloudShell IP gets whitelisted instead of yours)
@@ -28,6 +32,8 @@ AZ1="${AWS_DEFAULT_REGION}a"
 AZ2="${AWS_DEFAULT_REGION}b"
 DC_TYPE="${DC_TYPE:-t3.medium}"
 SQL_TYPE="${SQL_TYPE:-t3.large}"
+CLUSTER_NAME="${CLUSTER_NAME:-SQLCL}"; NODE1_NAME="${NODE1_NAME:-SQLNODE1}"; NODE2_NAME="${NODE2_NAME:-SQLNODE2}"
+AG_NAME="${AG_NAME:-AG1}"; LISTENER_NAME="${LISTENER_NAME:-AGL}"; DC_NAME="${DC_NAME:-DC01}"
 DOMAIN="corp.local"
 NETBIOS="CORP"
 DC_IP="10.0.1.10"; N1_IP="10.0.1.20"; N2_IP="10.0.2.20"
@@ -39,12 +45,23 @@ b64() { base64 | tr -d '\n'; }
 save() { printf "%s='%s'\n" "$1" "${!1}" >> "$ENV_FILE"; chmod 600 "$ENV_FILE"; }
 load() { [[ -f "$ENV_FILE" ]] || die "$ENV_FILE not found. Run first: $0 up"; source "$ENV_FILE"; }
 
+validate_names() {
+  local v n seen=" "
+  for v in CLUSTER_NAME NODE1_NAME NODE2_NAME AG_NAME LISTENER_NAME DC_NAME; do
+    n="${!v}"
+    [[ "$n" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,13}[A-Za-z0-9])?$ ]] || die "$v='$n' is invalid: 1-15 chars, letters/digits/hyphen, no leading or trailing hyphen."
+    n=$(printf "%s" "$n" | tr a-z A-Z)
+    [[ "$seen" != *" $n "* ]] || die "Duplicate name '$n': cluster, nodes, AG, listener and DC names must all be different."
+    seen+="$n "
+  done
+}
+
 # ---------------------------------------------------------------- SSM helpers
 # ssm_run MODE "ids" file.ps1 [timeout_min]   (MODE: system | admin)
 ssm_run() {
   local mode=$1 ids=$2 file=$3 tmo=${4:-90}
   local vars payload wrapper wb64 pf cid id st out err rc=0
-  vars="\$ErrorActionPreference='Stop'; \$ProgressPreference='SilentlyContinue'; \$LabPwd='${LAB_PWD}'; \$Domain='${DOMAIN}'; \$Netbios='${NETBIOS}'; \$DcIp='${DC_IP}'; \$SqlIsoUrl='${SQL_ISO_URL}'"
+  vars="\$ErrorActionPreference='Stop'; \$ProgressPreference='SilentlyContinue'; \$LabPwd='${LAB_PWD}'; \$Domain='${DOMAIN}'; \$Netbios='${NETBIOS}'; \$DcIp='${DC_IP}'; \$ClusterName='${CLUSTER_NAME}'; \$Node1='${NODE1_NAME}'; \$Node2='${NODE2_NAME}'; \$AgName='${AG_NAME}'; \$ListenerName='${LISTENER_NAME}'; \$DcName='${DC_NAME}'; \$SqlIsoUrl='${SQL_ISO_URL}'"
   payload=$( { echo "$vars"; cat "$PS_DIR/_lib.ps1"; cat "$file"; } | b64 )
   wrapper=$(<"$PS_DIR/_wrapper.ps1")
   wrapper=${wrapper//__MODE__/$mode}
@@ -119,6 +136,8 @@ reboot_wait() {  # reboot and wait for the SSM agent to come back
 # ---------------------------------------------------------------- infrastructure
 infra() {
   [[ ! -f "$ENV_FILE" ]] || die "$ENV_FILE already exists. Use '$0 down' or '$0 resume N'."
+  validate_names
+  local v; for v in CLUSTER_NAME NODE1_NAME NODE2_NAME AG_NAME LISTENER_NAME DC_NAME; do save "$v"; done
   MY_IP="${MY_CIDR:-$(curl -s https://checkip.amazonaws.com | tr -d '[:space:]')/32}"; save MY_IP
   LAB_PWD="Lab#$(openssl rand -hex 6)aA1!"; save LAB_PWD
   echo "Region: $AWS_DEFAULT_REGION | Allowed client IP: $MY_IP"
@@ -175,9 +194,9 @@ infra() {
     echo "Clean up what was created with: $0 down" >&2
     exit 1
   }
-  DC=$(launch DC01     "$DC_TYPE"  "$S1" "$DC_IP"); save DC
-  N1=$(launch SQLNODE1 "$SQL_TYPE" "$S1" "$N1_IP"); save N1
-  N2=$(launch SQLNODE2 "$SQL_TYPE" "$S2" "$N2_IP"); save N2
+  DC=$(launch "$DC_NAME"    "$DC_TYPE"  "$S1" "$DC_IP"); save DC
+  N1=$(launch "$NODE1_NAME" "$SQL_TYPE" "$S1" "$N1_IP"); save N1
+  N2=$(launch "$NODE2_NAME" "$SQL_TYPE" "$S2" "$N2_IP"); save N2
   aws ec2 wait instance-running --instance-ids "$DC" "$N1" "$N2"
 
   # Secondary private IPs on each node: one for the cluster and one for the listener (one per subnet)
@@ -234,7 +253,7 @@ info() {
     --query 'Reservations[].Instances[].[Tags[?Key==`Name`]|[0].Value,PublicIpAddress,PrivateIpAddress]' --output table
   echo "RDP (3389)  user: ${NETBIOS}\\Administrator   password: $LAB_PWD"
   echo "SSMS        server: <public IP of a SQL node>,1433   user: sa   password: $LAB_PWD"
-  echo "Listener AGL (10.0.1.51 / 10.0.2.51) is only reachable from inside the VPC."
+  echo "Listener $LISTENER_NAME (10.0.1.51 / 10.0.2.51) is only reachable from inside the VPC."
   echo "Access allowed only from: $MY_IP  (if your IP changes: $0 myip <x.x.x.x/32>)"
 }
 

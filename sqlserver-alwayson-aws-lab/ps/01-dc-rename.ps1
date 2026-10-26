@@ -1,2 +1,2 @@
-if ($env:COMPUTERNAME -ne 'DC01') { Rename-Computer -NewName DC01 -Force }
-Write-Output 'Computer renamed to DC01 (reboot pending)'
+if ($env:COMPUTERNAME -ne $DcName) { Rename-Computer -NewName $DcName -Force }
+Write-Output "Computer renamed to $DcName (reboot pending)"

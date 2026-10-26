@@ -322,3 +322,23 @@ Useful on the instances: `C:\lab\step.log` (last step output), the SQL Server `E
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+## Custom names (parameters)
+
+Cluster, node, availability group, listener and domain controller names can be set when running `up`. They are saved in `sqlag-lab.env`, so `resume`, `status` and `failover` reuse them.
+
+```bash
+CLUSTER_NAME=PRODCL NODE1_NAME=SQLPRD01 NODE2_NAME=SQLPRD02 \
+AG_NAME=AGPRD LISTENER_NAME=LSNPRD DC_NAME=DCPRD \
+./sqlag-lab.sh up
+```
+
+| Variable | Default |
+|---|---|
+| `CLUSTER_NAME` | `SQLCL` |
+| `NODE1_NAME` / `NODE2_NAME` | `SQLNODE1` / `SQLNODE2` |
+| `AG_NAME` | `AG1` |
+| `LISTENER_NAME` | `AGL` |
+| `DC_NAME` | `DC01` |
+
+Rules (checked before anything is created): 1-15 characters (NetBIOS limit), letters, digits and hyphens only, and all six names must be different.

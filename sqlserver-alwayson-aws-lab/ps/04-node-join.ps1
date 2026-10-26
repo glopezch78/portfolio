@@ -1,5 +1,5 @@
 $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -like '10.0.*' } | Select-Object -First 1).IPAddress
-$newName = if ($ip -eq '10.0.1.20') { 'SQLNODE1' } else { 'SQLNODE2' }
+$newName = if ($ip -eq '10.0.1.20') { $Node1 } else { $Node2 }
 
 # Use the domain controller as DNS server
 $nic = Get-NetAdapter | Where-Object Status -eq 'Up' | Select-Object -First 1

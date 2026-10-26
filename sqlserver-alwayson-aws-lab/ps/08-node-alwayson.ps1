@@ -23,7 +23,7 @@ Q "GRANT CONNECT SQL TO [NT AUTHORITY\SYSTEM]"
 Q "GRANT VIEW SERVER STATE TO [NT AUTHORITY\SYSTEM]"
 
 # Database mirroring endpoint + permission for the other node's machine account
-$other = if ($env:COMPUTERNAME -eq 'SQLNODE1') { 'SQLNODE2' } else { 'SQLNODE1' }
+$other = if ($env:COMPUTERNAME -eq $Node1) { $Node2 } else { $Node1 }
 $login = "$Netbios\$other`$"
 Q "IF NOT EXISTS (SELECT 1 FROM sys.endpoints WHERE name = 'hadr_endpoint') CREATE ENDPOINT hadr_endpoint STATE = STARTED AS TCP (LISTENER_PORT = 5022) FOR DATABASE_MIRRORING (ROLE = ALL, ENCRYPTION = REQUIRED ALGORITHM AES)"
 Q "IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = '$login') CREATE LOGIN [$login] FROM WINDOWS"
