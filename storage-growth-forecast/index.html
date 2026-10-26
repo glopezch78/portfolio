@@ -1,0 +1,272 @@
+<title>Storage Growth Forecast</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: left control rail + right workspace (chart, then scenario table); stacks to one column on phones */
+:root{
+  --bg:#f3f5f6; --surface:#ffffff; --fg:#14211f; --muted:#5c6b69; --line:#d9e0e0;
+  --actual:#14211f; --linear:#1f6feb; --expo:#d9730d; --cap:#c62f3b; --warn:#b7791f; --ok:#2a8a5b;
+  --font-ui:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-num:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1716; --surface:#172220; --fg:#e6eeec; --muted:#93a5a2; --line:#2a3a37;
+  --actual:#e6eeec; --linear:#5b9cff; --expo:#f0963a; --cap:#ff6b76; --warn:#e3a94a; --ok:#4cc08a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1716; --surface:#172220; --fg:#e6eeec; --muted:#93a5a2; --line:#2a3a37;
+  --actual:#e6eeec; --linear:#5b9cff; --expo:#f0963a; --cap:#ff6b76; --warn:#e3a94a; --ok:#4cc08a; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-ui);padding-inline:16px;padding-block:20px 40px;line-height:1.45}
+*{box-sizing:border-box}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:6px 16px}
+h1{font-size:1.5rem;margin:0;font-weight:600;letter-spacing:-.01em;text-wrap:balance}
+header p{margin:0;color:var(--muted);font-size:.9rem}
+.grid{display:grid;grid-template-columns:300px minmax(0,1fr);gap:18px;align-items:start}
+@media(max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
+h2{font-size:.72rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:0;font-weight:600}
+label{display:flex;flex-direction:column;gap:5px;font-size:.82rem;color:var(--muted)}
+input,select,textarea,button{font:inherit;color:var(--fg)}
+input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:8px 9px;width:100%;min-width:0}
+textarea{font-family:var(--font-num);font-size:.78rem;height:150px;resize:vertical}
+input[type=number]{font-family:var(--font-num)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button,.btn{border:1px solid var(--line);background:var(--surface);border-radius:4px;padding:8px 11px;cursor:pointer;font-size:.85rem;font-weight:500;text-align:center}
+button.primary{background:var(--linear);border-color:var(--linear);color:#fff}
+button:hover,.btn:hover{border-color:var(--muted)}
+:focus-visible{outline:2px solid var(--linear);outline-offset:2px}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.hint{font-size:.76rem;color:var(--muted);margin:0}
+.err{font-size:.8rem;color:var(--cap);margin:0;min-height:1em}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px 18px}
+.stat{display:flex;flex-direction:column;gap:2px;min-width:0}
+.stat .k{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.stat .v{font-family:var(--font-num);font-size:1.3rem;font-weight:500}
+.stat .s{font-size:.78rem;color:var(--muted)}
+.chartbox{overflow:hidden}
+svg{display:block;width:100%;height:auto}
+svg text{font-family:var(--font-num);font-size:11px;fill:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.8rem;color:var(--muted)}
+.legend i{display:inline-block;width:18px;height:0;border-top:2.5px solid;vertical-align:middle;margin-right:6px}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.86rem;min-width:520px}
+th{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);text-align:left;font-weight:600;padding:6px 10px;border-bottom:1px solid var(--line)}
+td{padding:10px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+td.n,th.n{text-align:right;font-family:var(--font-num)}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;padding:2px 8px;border-radius:99px;font-size:.74rem;font-weight:600;border:1px solid}
+.pill.ok{color:var(--ok)}.pill.warn{color:var(--warn)}.pill.bad{color:var(--cap)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:8px}
+.sample{font-size:.76rem;color:var(--warn);font-weight:600}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Storage Growth Forecast</h1>
+    <p>Fit linear and compounding growth to usage history and find the date you run out of space.</p>
+  </header>
+
+  <div class="grid">
+    <aside class="panel">
+      <h2>Usage history</h2>
+      <textarea id="data" spellcheck="false" aria-label="CSV data, date and used size"></textarea>
+      <div class="btns">
+        <label class="btn" for="file" style="flex-direction:row">Upload CSV</label>
+        <input type="file" id="file" accept=".csv,.txt,text/csv" hidden>
+        <button id="sample" type="button">Load sample</button>
+      </div>
+      <p class="hint">Two columns: date (YYYY-MM-DD) and used space. A header row is fine. Snapshots can be daily, weekly or monthly.</p>
+      <h2>Assumptions</h2>
+      <div class="row">
+        <label for="cap">Usable capacity<input id="cap" type="number" min="0" step="any" value="100"></label>
+        <label for="unit">Unit<select id="unit"><option>GB</option><option selected>TB</option><option>PB</option></select></label>
+      </div>
+      <div class="row">
+        <label for="hor">Forecast horizon (months)<input id="hor" type="number" min="1" max="240" step="1" value="24"></label>
+        <label for="thr">Alert threshold %<input id="thr" type="number" min="1" max="100" value="80"></label>
+      </div>
+      <p class="err" id="err" role="alert"></p>
+    </aside>
+
+    <main style="display:flex;flex-direction:column;gap:18px;min-width:0">
+      <section class="panel">
+        <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><h2>Projected capacity use</h2><span class="sample" id="samplebadge" hidden>Example data</span></div>
+        <div class="stats" id="stats"></div>
+        <div class="chartbox"><svg id="chart" viewBox="0 0 860 380" role="img" aria-label="Storage usage history and forecast chart"></svg></div>
+        <div class="legend">
+          <span><i style="border-color:var(--actual)"></i>Actual</span>
+          <span><i style="border-color:var(--linear)"></i>Linear trend</span>
+          <span><i style="border-color:var(--expo)"></i>Compounding trend</span>
+          <span><i style="border-color:var(--cap);border-top-style:dashed"></i>Capacity</span>
+        </div>
+      </section>
+      <section class="panel">
+        <h2>Scenarios</h2>
+        <div class="tablewrap"><table id="tbl"></table></div>
+        <p class="hint">Linear adds a fixed amount each month. Compounding grows by a fixed percentage each month, so it reaches capacity sooner when growth is accelerating. Both are least-squares fits to your history. Treat the gap between them as your planning range.</p>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id), DAY=864e5, NS='http://www.w3.org/2000/svg';
+const MON=30.4375;
+const fmtD=d=>d.toLocaleDateString('en-US',{month:'short',year:'numeric'});
+const fmtDay=d=>d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+
+function sampleCSV(){
+  const rows=['date,used_tb'];let v=38.2;
+  const noise=[.4,-.3,.5,-.6,.2,.7,-.4,.3,-.2,.6,-.5,.4,.1,-.3,.8,-.4,.2,.5];
+  for(let i=0;i<18;i++){
+    const d=new Date(Date.UTC(2025,3+i,1));
+    rows.push(d.toISOString().slice(0,10)+','+(v+noise[i]).toFixed(2));
+    v*=1.028;
+  }
+  return rows.join('\n');
+}
+
+function parse(text){
+  const pts=[];
+  for(const line of text.split(/\r?\n/)){
+    const c=line.split(/[,;\t]/);if(c.length<2)continue;
+    const t=Date.parse(c[0].trim().replace(/^"|"$/g,''));
+    const y=parseFloat(c[1].replace(/[^0-9.\-eE]/g,''));
+    if(!isNaN(t)&&!isNaN(y))pts.push({t,y});
+  }
+  pts.sort((a,b)=>a.t-b.t);return pts;
+}
+
+function fit(xs,ys){
+  const n=xs.length,mx=xs.reduce((a,b)=>a+b)/n,my=ys.reduce((a,b)=>a+b)/n;
+  let sxy=0,sxx=0,syy=0;
+  for(let i=0;i<n;i++){sxy+=(xs[i]-mx)*(ys[i]-my);sxx+=(xs[i]-mx)**2;syy+=(ys[i]-my)**2}
+  const m=sxy/sxx,b=my-m*mx;
+  return{m,b,r2:syy?sxy*sxy/(sxx*syy):1};
+}
+
+function analyze(pts,cap){
+  const t0=pts[0].t, xs=pts.map(p=>(p.t-t0)/DAY/MON), ys=pts.map(p=>p.y);
+  const lin=fit(xs,ys);
+  const pos=ys.every(y=>y>0);
+  const ex=pos?fit(xs,ys.map(Math.log)):null;
+  const L=x=>lin.b+lin.m*x;
+  const E=ex?(x=>Math.exp(ex.b+ex.m*x)):null;
+  const cross=(f,level)=>{ // months from t0 where model hits level
+    if(f==='lin'){return lin.m>0?(level-lin.b)/lin.m:null}
+    if(!ex||ex.m<=0)return null;return (Math.log(level)-ex.b)/ex.m;
+  };
+  return{t0,xs,ys,lin,ex,L,E,cross};
+}
+
+function render(){
+  const err=$('err');err.textContent='';
+  const pts=parse($('data').value),cap=+$('cap').value,unit=$('unit').value,hor=Math.round(+$('hor').value),thr=+$('thr').value/100;
+  if(!(hor>=1&&hor<=240)){err.textContent='Enter a forecast horizon between 1 and 240 months.';return}
+  if(pts.length<3){err.textContent='Need at least 3 rows with a date and a number.';return}
+  if(!(cap>0)){err.textContent='Enter a capacity above zero.';return}
+  if(pts[pts.length-1].t-pts[0].t<20*DAY){err.textContent='History spans under 3 weeks. Add older snapshots for a usable trend.';return}
+  const A=analyze(pts,cap), last=pts[pts.length-1];
+  const xNow=(last.t-A.t0)/DAY/MON, dateAt=x=>new Date(A.t0+x*MON*DAY);
+  const spanMo=xNow;
+
+  const models=[
+    {key:'lin',name:'Linear',color:'var(--linear)',f:A.L,r2:A.lin.r2,
+     rate:A.lin.m, rateTxt:A.lin.m>=0?`+${A.lin.m.toFixed(2)} ${unit}/mo`:`${A.lin.m.toFixed(2)} ${unit}/mo`},
+    {key:'exp',name:'Compounding',color:'var(--expo)',f:A.E,r2:A.ex&&A.ex.r2,
+     rate:A.ex&&A.ex.m, rateTxt:A.ex?`${((Math.exp(A.ex.m)-1)*100).toFixed(1)}%/mo`:'n/a'}
+  ];
+  for(const m of models){
+    const xf=A.cross(m.key,cap), xt=A.cross(m.key,cap*thr);
+    m.full=xf!=null&&xf>=xNow?xf:(xf!=null&&A.ys[A.ys.length-1]>=cap?xNow:null);
+    m.thr=xt!=null&&xt>=xNow?xt:(xt!=null&&last.y>=cap*thr?xNow:null);
+    m.atH=m.f?m.f(xNow+hor):null;
+  }
+  const usedPct=last.y/cap;
+
+  // stats
+  const earliest=models.filter(m=>m.full!=null).sort((a,b)=>a.full-b.full)[0];
+  const st=[];
+  st.push(['Used now',`${last.y.toFixed(1)} ${unit}`,`${(usedPct*100).toFixed(0)}% of ${cap} ${unit}, ${fmtDay(new Date(last.t))}`]);
+  st.push(['Earliest full',earliest?fmtD(dateAt(earliest.full)):'Not in trend',earliest?`${Math.max(0,earliest.full-xNow).toFixed(1)} months away (${earliest.name.toLowerCase()})`:'Growth is flat or falling']);
+  const latest=models.filter(m=>m.full!=null).sort((a,b)=>b.full-a.full)[0];
+  st.push(['Latest full',latest&&models.filter(m=>m.full!=null).length>1?fmtD(dateAt(latest.full)):'—',latest&&models.filter(m=>m.full!=null).length>1?'Slower of the two trends':'Only one trend reaches capacity']);
+  st.push(['Data used',`${pts.length} points`,`${spanMo.toFixed(1)} months of history`]);
+  $('stats').innerHTML=st.map(s=>`<div class="stat"><span class="k">${s[0]}</span><span class="v">${s[1]}</span><span class="s">${s[2]}</span></div>`).join('');
+
+  // table
+  const pill=m=>{
+    if(m.full==null)return'<span class="pill ok">No exhaustion</span>';
+    const mo=m.full-xNow;
+    return `<span class="pill ${mo<6?'bad':mo<12?'warn':'ok'}">${mo<=0?'Full now':mo<6?'Under 6 months':mo<12?'Under 12 months':'12+ months'}</span>`;
+  };
+  $('tbl').innerHTML=`<thead><tr><th>Model</th><th class="n">Growth</th><th class="n">${Math.round(thr*100)}% reached</th><th class="n">100% reached</th><th class="n">In ${hor} mo</th><th class="n">Fit R²</th><th>Risk</th></tr></thead><tbody>`+
+    models.map(m=>`<tr><td><span class="dot" style="background:${m.color}"></span>${m.name}</td>
+      <td class="n">${m.rateTxt}</td>
+      <td class="n">${m.thr!=null?fmtD(dateAt(m.thr)):'—'}</td>
+      <td class="n">${m.full!=null?fmtD(dateAt(m.full)):'—'}</td>
+      <td class="n">${m.atH!=null?m.atH.toFixed(1)+' '+unit:'n/a'}</td>
+      <td class="n">${m.r2!=null?m.r2.toFixed(3):'n/a'}</td><td>${pill(m)}</td></tr>`).join('')+'</tbody>';
+
+  // chart
+  const W=860,H=380,ml=56,mr=18,mt=14,mb=34, pw=W-ml-mr, ph=H-mt-mb;
+  const xEnd=xNow+hor;
+  let ymax=Math.max(cap*1.12,Math.max(...A.ys)*1.1);
+  const stepRaw=ymax/5,pw10=10**Math.floor(Math.log10(stepRaw));
+  const step=[1,2,2.5,5,10].map(s=>s*pw10).find(s=>s>=stepRaw);
+  ymax=Math.ceil(ymax/step)*step;
+  const X=x=>ml+x/xEnd*pw, Y=y=>mt+ph-(Math.max(0,Math.min(y,ymax))/ymax)*ph;
+  let s=`<defs><clipPath id="cp"><rect x="${ml}" y="${mt}" width="${pw}" height="${ph}"/></clipPath></defs>`;
+  for(let v=0;v<=ymax+1e-9;v+=step){
+    s+=`<line x1="${ml}" x2="${W-mr}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)" stroke-width="1"/>`;
+    s+=`<text x="${ml-8}" y="${Y(v)+4}" text-anchor="end">${+v.toFixed(2)}</text>`;
+  }
+  s+=`<text x="${ml-8}" y="${mt-3}" text-anchor="end" style="font-size:10px">${unit}</text>`;
+  // x ticks: every N months, aligned to quarter starts
+  const stepMo=xEnd>120?24:xEnd>48?12:xEnd>24?6:xEnd>8?3:1;
+  const d0=dateAt(0);let tick=new Date(Date.UTC(d0.getUTCFullYear(),Math.ceil(d0.getUTCMonth()/stepMo)*stepMo,1));
+  const tEnd=A.t0+xEnd*MON*DAY;
+  while(tick.getTime()<=tEnd){
+    const x=X((tick.getTime()-A.t0)/DAY/MON);
+    if(x>=ml){s+=`<line x1="${x}" x2="${x}" y1="${mt+ph}" y2="${mt+ph+4}" stroke="var(--muted)"/><text x="${x}" y="${H-14}" text-anchor="middle">${tick.toLocaleDateString('en-US',{month:'short',year:'2-digit',timeZone:'UTC'})}</text>`}
+    tick=new Date(Date.UTC(tick.getUTCFullYear(),tick.getUTCMonth()+stepMo,1));
+  }
+  s+=`<line x1="${ml}" x2="${W-mr}" y1="${mt+ph}" y2="${mt+ph}" stroke="var(--muted)"/>`;
+  // threshold + capacity
+  s+=`<line x1="${ml}" x2="${W-mr}" y1="${Y(cap*thr)}" y2="${Y(cap*thr)}" stroke="var(--warn)" stroke-dasharray="2 4" stroke-width="1.2"/>`;
+  s+=`<text x="${W-mr-4}" y="${Y(cap*thr)-5}" text-anchor="end" style="fill:var(--warn)">${Math.round(thr*100)}%</text>`;
+  s+=`<line x1="${ml}" x2="${W-mr}" y1="${Y(cap)}" y2="${Y(cap)}" stroke="var(--cap)" stroke-dasharray="6 4" stroke-width="1.6"/>`;
+  s+=`<text x="${ml+6}" y="${Y(cap)-6}" style="fill:var(--cap)">Capacity ${cap} ${unit}</text>`;
+  // now divider
+  s+=`<line x1="${X(xNow)}" x2="${X(xNow)}" y1="${mt}" y2="${mt+ph}" stroke="var(--line)" stroke-width="1.5"/>`;
+  // forecast lines
+  const path=(f,x0,x1)=>{let d='';const n=60;for(let i=0;i<=n;i++){const x=x0+(x1-x0)*i/n;d+=(i?'L':'M')+X(x).toFixed(1)+' '+Y(f(x)).toFixed(1)}return d};
+  const fit0=Math.max(0,xNow-spanMo);
+  for(const m of models){if(!m.f)continue;
+    s+=`<path d="${path(m.f,0,xNow)}" fill="none" stroke="${m.color}" stroke-width="1.2" opacity=".35" clip-path="url(#cp)"/>`;
+    s+=`<path d="${path(m.f,xNow,xEnd)}" fill="none" stroke="${m.color}" stroke-width="2.5" clip-path="url(#cp)"/>`;
+    if(m.full!=null&&m.full<=xEnd){
+      const cx=X(m.full),cy=Y(cap);
+      s+=`<circle cx="${cx}" cy="${cy}" r="5" fill="var(--surface)" stroke="${m.color}" stroke-width="2.5"/>`;
+      const anchor=cx>W-110?'end':'start', dx=anchor==='end'?-9:9, dy=m.key==='lin'?18:-24;
+      s+=`<text x="${cx+dx}" y="${cy+dy}" text-anchor="${anchor}" style="fill:${m.color};font-weight:500">${fmtD(dateAt(m.full))}</text>`;
+    }
+  }
+  // actual
+  s+=`<path d="${pts.map((p,i)=>(i?'L':'M')+X((p.t-A.t0)/DAY/MON).toFixed(1)+' '+Y(p.y).toFixed(1)).join('')}" fill="none" stroke="var(--actual)" stroke-width="2"/>`;
+  if(pts.length<=60)for(const p of pts)s+=`<circle cx="${X((p.t-A.t0)/DAY/MON)}" cy="${Y(p.y)}" r="2.6" fill="var(--actual)"/>`;
+  s+=`<circle cx="${X(xNow)}" cy="${Y(last.y)}" r="4.5" fill="var(--actual)" stroke="var(--surface)" stroke-width="2"/>`;
+  $('chart').innerHTML=s;
+}
+
+function load(text,isSample){
+  $('data').value=text;$('samplebadge').hidden=!isSample;render();
+}
+$('sample').onclick=()=>{$('unit').value='TB';$('cap').value=100;load(sampleCSV(),true)};
+$('file').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();r.onload=()=>load(String(r.result),false);r.readAsText(f);
+};
+for(const id of ['cap','unit','hor','thr'])$(id).addEventListener('input',render);
+$('data').addEventListener('input',()=>{$('samplebadge').hidden=true;render()});
+load(sampleCSV(),true);
+</script>
