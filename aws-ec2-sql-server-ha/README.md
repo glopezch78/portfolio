@@ -1,4 +1,4 @@
-# SQL Server Always On Availability Group on AWS EC2 — fully automated
+# AWS EC2 SQL Server HA — fully automated Always On Availability Group lab
 
 Deploy a **2-node SQL Server Always On Availability Group** (Windows Server Failover Cluster, Active Directory, multi-subnet listener, automatic failover) on AWS EC2 with **one command**, then practice failovers, readable secondaries and recovery scenarios. Tear it all down with another command.
 
@@ -92,7 +92,7 @@ Run it for a few hours, then run `./sqlag-lab.sh down`. Stopping the instances k
 ## 4. Repository layout
 
 ```
-sqlserver-alwayson-aws-lab/
+aws-ec2-sql-server-ha/
 ├── sqlag-lab.sh                 # orchestrator: AWS CLI + SSM
 ├── ps/
 │   ├── _wrapper.ps1             # runs each step on an instance (as SYSTEM or domain admin)
@@ -138,8 +138,8 @@ The nodes install SQL Server from an ISO that you provide through a **pre-signed
 ### Step 2 — Get the project into AWS CloudShell
 
 ```bash
-git clone https://github.com/glopezch78/sqlserver-alwayson-aws-lab.git
-cd sqlserver-alwayson-aws-lab
+git clone https://github.com/glopezch78/portfolio.git
+cd portfolio/aws-ec2-sql-server-ha
 chmod +x sqlag-lab.sh
 export AWS_DEFAULT_REGION=us-east-2      # any region with >= 2 AZs
 ```
