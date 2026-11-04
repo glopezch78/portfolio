@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $mode = '__MODE__'
-$d = 'C:\lab'
+$d = 'C:\sqlag'
 New-Item $d -ItemType Directory -Force | Out-Null
 $f = "$d\step.ps1"; $log = "$d\step.log"; $rc = "$d\step.rc"; $runner = "$d\run.ps1"
 [IO.File]::WriteAllBytes($f, [Convert]::FromBase64String('__B64__'))

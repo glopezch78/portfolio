@@ -1,4 +1,4 @@
-# lab state and secrets - never commit
+# deployment state and secrets - never commit
 *.env
 *.pem
 *.log

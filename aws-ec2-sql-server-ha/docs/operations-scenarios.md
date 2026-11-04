@@ -1,8 +1,8 @@
-# Practice exercises
+# Operations scenarios
 
-Hands-on scenarios for the deployed lab. Connect to a node with SSMS (see the README) or run T-SQL through RDP on a node. Unless noted, run statements on the **current primary**; `./sqlag-lab.sh status` tells you which node that is.
+Operational scenarios for the deployed environment. Connect to a node with SSMS (see the README) or run T-SQL through RDP on a node. Unless noted, run statements on the **current primary**; `./sqlag.sh status` tells you which node that is.
 
-> Remember to run `./sqlag-lab.sh down` when you finish.
+> Remember to run `./sqlag.sh down` when you finish.
 
 ## 1. Inspect the topology
 
@@ -19,7 +19,7 @@ Questions: which node is primary? What does `ip_configuration_string_from_cluste
 ## 2. Manual failover (no data loss)
 
 ```bash
-./sqlag-lab.sh failover
+./sqlag.sh failover
 ```
 
 Or in T-SQL, **on the secondary**:
@@ -44,7 +44,7 @@ Why does it work? Synchronous commit + `FAILOVER_MODE = AUTOMATIC` + a cluster t
 Insert rows from the primary:
 
 ```sql
-INSERT LabDB.dbo.Heartbeat DEFAULT VALUES;
+INSERT HaDB.dbo.Heartbeat DEFAULT VALUES;
 ```
 
 By default the secondary is **not readable**; a `SELECT` against it fails. Make it readable (on the primary):
@@ -60,10 +60,10 @@ Connect directly to the other node and read the table. Then try an `INSERT` ther
 
 ```sql
 -- on the primary
-CREATE LOGIN demo_login WITH PASSWORD = 'Str0ng!Passw0rd#1';
+CREATE LOGIN app_login WITH PASSWORD = 'Str0ng!Passw0rd#1';
 ```
 
-Fail over, then try `demo_login` on the new primary. The login does not exist there — only the **database** is replicated, not instance-level objects. Fix it by creating the login on both nodes (with the same SID to avoid orphaned users).
+Fail over, then try `app_login` on the new primary. The login does not exist there — only the **database** is replicated, not instance-level objects. Fix it by creating the login on both nodes (with the same SID to avoid orphaned users).
 
 ## 6. Add another database to the group
 
@@ -98,7 +98,7 @@ ALTER AVAILABILITY GROUP [AG1] FORCE_FAILOVER_ALLOW_DATA_LOSS;
 When the old primary returns, its databases are `SUSPENDED`; resume data movement and compare what was lost:
 
 ```sql
-ALTER DATABASE LabDB SET HADR RESUME;
+ALTER DATABASE HaDB SET HADR RESUME;
 ```
 
 Restore the original settings afterwards (`SYNCHRONOUS_COMMIT`, then `FAILOVER_MODE = AUTOMATIC`).
@@ -108,7 +108,7 @@ Restore the original settings afterwards (`SYNCHRONOUS_COMMIT`, then `FAILOVER_M
 ```sql
 ALTER AVAILABILITY GROUP [AG1] SET (AUTOMATED_BACKUP_PREFERENCE = SECONDARY);
 
-SELECT sys.fn_hadr_backup_is_preferred_replica(N'LabDB') AS is_preferred_here;
+SELECT sys.fn_hadr_backup_is_preferred_replica(N'HaDB') AS is_preferred_here;
 ```
 
 Run the query on both nodes. Which one is preferred? What changes after a failover?
@@ -121,9 +121,9 @@ With two nodes and a file-share witness the cluster has three votes.
 2. Start `DC01`, then stop **one SQL node and `DC01` together**. Does the AG stay online? Why not?
 3. Use `Get-ClusterNode | Format-Table Name, State, DynamicWeight, NodeWeight` to see dynamic quorum adjusting votes.
 
-## 10. Look at failures like a DBA
+## 10. Diagnose failures
 
-Break something on purpose and find the evidence:
+Inject a fault and find the evidence:
 
 - Stop the SQL Server service on the secondary — where does the primary show the replica as `DISCONNECTED`?
 - Block port 5022 in the security group for a minute — what appears in the SQL error log and the cluster log (`Get-ClusterLog -UseLocalTime -TimeSpan 10`)?

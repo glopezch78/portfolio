@@ -1,9 +1,9 @@
 # Troubleshooting
 
-Real problems hit while building this lab, with cause and fix. Run commands from the project directory; load the saved state first when you need resource IDs:
+Problems encountered while building and operating this deployment, with cause and fix. Run commands from the project directory; load the saved state first when you need resource IDs:
 
 ```bash
-source sqlag-lab.env      # defines $DC $N1 $N2 $VPC $SG $RT ...
+source sqlag.env      # defines $DC $N1 $N2 $VPC $SG $RT ...
 export AWS_DEFAULT_REGION=us-east-2
 ```
 
@@ -13,17 +13,17 @@ export AWS_DEFAULT_REGION=us-east-2
 |---|---|---|
 | `SQL_ISO_URL is not set` | The ISO URL is mandatory | `export SQL_ISO_URL="$(aws s3 presign s3://<bucket>/<iso> --expires-in 86400)"` |
 | `The specified instance type is not eligible for Free Tier` (`InvalidParameterCombination`) | The account is on the new AWS *free plan*, which only allows a short list of instance types | List them (`describe-instance-types --filters Name=free-tier-eligible,Values=true`) and run with e.g. `DC_TYPE=c7i-flex.large SQL_TYPE=m7i-flex.large`, or upgrade the plan. Do not pick ARM (`t4g`) types. |
-| `PendingVerification` on `RunInstances` | AWS is validating the account/region | Wait for the validation email (minutes to ~4 h) or open an account-verification support case. Run `./sqlag-lab.sh down`, then `up` again. |
+| `PendingVerification` on `RunInstances` | AWS is validating the account/region | Wait for the validation email (minutes to ~4 h) or open an account-verification support case. Run `./sqlag.sh down`, then `up` again. |
 | `Invalid IAM Instance Profile name` | The new instance profile has not propagated yet | The script retries automatically for ~80 s. If it still fails, wait a minute and use `down` + `up`. |
-| `already exists` for the env file | A previous deployment left `sqlag-lab.env` | Run `./sqlag-lab.sh down` first. |
+| `already exists` for the env file | A previous deployment left `sqlag.env` | Run `./sqlag.sh down` first. |
 
 ## A step fails
 
-The orchestrator prints `Step N (...) failed`. Read the output above it, fix the cause, then `./sqlag-lab.sh resume N`.
+The orchestrator prints `Step N (...) failed`. Read the output above it, fix the cause, then `./sqlag.sh resume N`.
 
 | Step | Symptom | Cause | Fix |
 |---|---|---|---|
-| 1 | Never leaves "wait for SSM" | Instances cannot reach SSM endpoints (no public IP / no IGW route) or the IAM role is missing | Check the instances have a public IP and the instance profile `sqlag-lab-ssm` |
+| 1 | Never leaves "wait for SSM" | Instances cannot reach SSM endpoints (no public IP / no IGW route) or the IAM role is missing | Check the instances have a public IP and the instance profile `sqlag-ssm` |
 | 7 | Step hangs for an hour, `SQL2022-SSEI-Dev` process using no CPU | Microsoft's web installer does not work non-interactively | Use the ISO route (`SQL_ISO_URL`). Cancel the stuck command (below), then resume at 7. |
 | 7 | `The downloaded ISO is missing or too small` | Expired/incorrect pre-signed URL or wrong key | `aws s3 ls`, regenerate the URL, `resume 7` |
 | 8 | `Set-ClusterQuorum : ... No such host is known` | The cluster name is not in DNS yet | Fixed in `06-cluster.ps1` (uses the local cluster and is re-runnable). `resume 8`. |
@@ -59,20 +59,20 @@ In a multi-subnet cluster it is **normal** for one `Cluster IP Address` resource
 
 CloudShell stops after ~20–30 minutes without interaction and kills background jobs. Commands already sent to the instances keep running.
 
-1. Reconnect, `cd` to the project, `tail -20 lab.log` to see the last step reached.
-2. `pgrep -af sqlag-lab.sh` — if it is gone, check in-flight commands (`list-commands ... InProgress`).
+1. Reconnect, `cd` to the project, `tail -20 deploy.log` to see the last step reached.
+2. `pgrep -af sqlag.sh` — if it is gone, check in-flight commands (`list-commands ... InProgress`).
 3. If the step's command is still `InProgress`, wait for it to finish — **do not re-run step 7** while the installer is still running.
 4. If it finished (`Success`) but the nodes did not reboot, reboot them yourself and continue at the next step:
    ```bash
    aws ec2 reboot-instances --instance-ids $N1 $N2 && sleep 240
-   nohup ./sqlag-lab.sh resume 8 > lab2.log 2>&1 &
+   nohup ./sqlag.sh resume 8 > deploy2.log 2>&1 &
    ```
 
 ## Connectivity
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| SSMS/RDP time out from your PC | The security group allows CloudShell's IP, not yours (the script detects the IP of the machine that runs it) | Redeploy with `MY_CIDR=<your-ip>/32`, or: `./sqlag-lab.sh myip <your-ip>/32` |
+| SSMS/RDP time out from your PC | The security group allows CloudShell's IP, not yours (the script detects the IP of the machine that runs it) | Redeploy with `MY_CIDR=<your-ip>/32`, or: `./sqlag.sh myip <your-ip>/32` |
 | SSMS: *network path not found / Named Pipes error 53* when connecting to `AGL` | `AGL` only resolves in the `corp.local` DNS and its IPs are private | Connect from inside the VPC (RDP to a node), or use VPC peering + the listener IP (`10.0.1.51,1433` / `10.0.2.51,1433`) |
 | Connecting by listener IP stops working after a failover | Only the listener IP of the primary's subnet is online | Use the other IP, or use the name with `MultiSubnetFailover=True` |
 | SSMS TLS / certificate error | SQL Server 2022+/SSMS 21+ default to mandatory encryption | Tick **Trust server certificate** |
@@ -80,9 +80,9 @@ CloudShell stops after ~20–30 minutes without interaction and kills background
 
 ## Cleanup problems
 
-- **Duplicate/orphan instances after a failed `up`.** Early versions of `down` skipped termination when a resource ID was missing. Find orphans by tag and compare with the IDs in `sqlag-lab.env`:
+- **Duplicate/orphan instances after a failed `up`.** Early versions of `down` skipped termination when a resource ID was missing. Find orphans by tag and compare with the IDs in `sqlag.env`:
   ```bash
-  aws ec2 describe-instances --filters Name=tag:Project,Values=sqlag-lab \
+  aws ec2 describe-instances --filters Name=tag:Project,Values=sqlag \
     Name=instance-state-name,Values=pending,running,stopping,stopped \
     --query 'Reservations[].Instances[].[InstanceId,Tags[?Key==`Name`]|[0].Value,VpcId]' --output table
   ```

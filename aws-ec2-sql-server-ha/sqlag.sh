@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# SQL Server Always On lab (2 nodes) on EC2: Active Directory + WSFC + SQL Server Developer.
+# SQL Server Always On deployment (2 nodes) on EC2: Active Directory + WSFC + SQL Server Developer.
 # Fully automated: infrastructure (AWS CLI) and in-guest configuration (via SSM, no RDP needed).
 #
-#   ./sqlag-lab.sh up              create and configure EVERYTHING (~50-70 min)
-#   ./sqlag-lab.sh resume N        resume from step N after a failure (steps are listed in STEPS below)
-#   ./sqlag-lab.sh info            public IPs and credentials
-#   ./sqlag-lab.sh status          cluster and availability group state
-#   ./sqlag-lab.sh failover        manual failover (the secondary becomes primary)
-#   ./sqlag-lab.sh myip [CIDR]     replace the allowed client IP in the security group
-#   ./sqlag-lab.sh down            delete EVERYTHING (stops all charges)
+#   ./sqlag.sh up              create and configure EVERYTHING (~50-70 min)
+#   ./sqlag.sh resume N        resume from step N after a failure (steps are listed in STEPS below)
+#   ./sqlag.sh info            public IPs and credentials
+#   ./sqlag.sh status          cluster and availability group state
+#   ./sqlag.sh failover        manual failover (the secondary becomes primary)
+#   ./sqlag.sh myip [CIDR]     replace the allowed client IP in the security group
+#   ./sqlag.sh down            delete EVERYTHING (stops all charges)
 #
 # Requirements: AWS CLI v2 configured, EC2/IAM/SSM permissions, curl, openssl, base64.
 # Required:  SQL_ISO_URL   pre-signed URL of the SQL Server Developer ISO (see README)
@@ -24,7 +24,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 
 export AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-us-east-1}"
 export AWS_PAGER=""
-P="sqlag-lab"
+P="sqlag"
 ENV_FILE="./${P}.env"
 PS_DIR="./ps"
 ROLE="${P}-ssm"
@@ -61,13 +61,13 @@ validate_names() {
 ssm_run() {
   local mode=$1 ids=$2 file=$3 tmo=${4:-90}
   local vars payload wrapper wb64 pf cid id st out err rc=0
-  vars="\$ErrorActionPreference='Stop'; \$ProgressPreference='SilentlyContinue'; \$LabPwd='${LAB_PWD}'; \$Domain='${DOMAIN}'; \$Netbios='${NETBIOS}'; \$DcIp='${DC_IP}'; \$ClusterName='${CLUSTER_NAME}'; \$Node1='${NODE1_NAME}'; \$Node2='${NODE2_NAME}'; \$AgName='${AG_NAME}'; \$ListenerName='${LISTENER_NAME}'; \$DcName='${DC_NAME}'; \$SqlIsoUrl='${SQL_ISO_URL}'"
+  vars="\$ErrorActionPreference='Stop'; \$ProgressPreference='SilentlyContinue'; \$AdminPwd='${ADMIN_PWD}'; \$Domain='${DOMAIN}'; \$Netbios='${NETBIOS}'; \$DcIp='${DC_IP}'; \$ClusterName='${CLUSTER_NAME}'; \$Node1='${NODE1_NAME}'; \$Node2='${NODE2_NAME}'; \$AgName='${AG_NAME}'; \$ListenerName='${LISTENER_NAME}'; \$DcName='${DC_NAME}'; \$SqlIsoUrl='${SQL_ISO_URL}'"
   payload=$( { echo "$vars"; cat "$PS_DIR/_lib.ps1"; cat "$file"; } | b64 )
   wrapper=$(<"$PS_DIR/_wrapper.ps1")
   wrapper=${wrapper//__MODE__/$mode}
   wrapper=${wrapper//__TIMEOUT__/$tmo}
   wrapper=${wrapper//__NETBIOS__/$NETBIOS}
-  wrapper=${wrapper//__PWD__/$LAB_PWD}
+  wrapper=${wrapper//__PWD__/$ADMIN_PWD}
   wrapper=${wrapper//__B64__/$payload}
   wb64=$(printf '%s' "$wrapper" | b64)
   pf=$(mktemp)
@@ -139,7 +139,7 @@ infra() {
   validate_names
   local v; for v in CLUSTER_NAME NODE1_NAME NODE2_NAME AG_NAME LISTENER_NAME DC_NAME; do save "$v"; done
   MY_IP="${MY_CIDR:-$(curl -s https://checkip.amazonaws.com | tr -d '[:space:]')/32}"; save MY_IP
-  LAB_PWD="Lab#$(openssl rand -hex 6)aA1!"; save LAB_PWD
+  ADMIN_PWD="Ha#$(openssl rand -hex 6)aA1!"; save ADMIN_PWD
   echo "Region: $AWS_DEFAULT_REGION | Allowed client IP: $MY_IP"
 
   # IAM role so that SSM can manage the instances
@@ -251,8 +251,8 @@ info() {
   load
   aws ec2 describe-instances --instance-ids "$DC" "$N1" "$N2" \
     --query 'Reservations[].Instances[].[Tags[?Key==`Name`]|[0].Value,PublicIpAddress,PrivateIpAddress]' --output table
-  echo "RDP (3389)  user: ${NETBIOS}\\Administrator   password: $LAB_PWD"
-  echo "SSMS        server: <public IP of a SQL node>,1433   user: sa   password: $LAB_PWD"
+  echo "RDP (3389)  user: ${NETBIOS}\\Administrator   password: $ADMIN_PWD"
+  echo "SSMS        server: <public IP of a SQL node>,1433   user: sa   password: $ADMIN_PWD"
   echo "Listener $LISTENER_NAME (10.0.1.51 / 10.0.2.51) is only reachable from inside the VPC."
   echo "Access allowed only from: $MY_IP  (if your IP changes: $0 myip <x.x.x.x/32>)"
 }

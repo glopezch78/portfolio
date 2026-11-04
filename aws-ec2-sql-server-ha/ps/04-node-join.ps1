@@ -18,6 +18,6 @@ for ($i = 0; $i -lt 40; $i++) {
 if (-not $ok) { throw 'The domain is not reachable' }
 
 Install-WindowsFeature Failover-Clustering -IncludeManagementTools | Out-Null
-$cred = New-Object System.Management.Automation.PSCredential("$Netbios\Administrator", (ConvertTo-SecureString $LabPwd -AsPlainText -Force))
+$cred = New-Object System.Management.Automation.PSCredential("$Netbios\Administrator", (ConvertTo-SecureString $AdminPwd -AsPlainText -Force))
 Add-Computer -DomainName $Domain -NewName $newName -Credential $cred -Force
 Write-Output "$newName joined to $Domain (reboot pending)"
