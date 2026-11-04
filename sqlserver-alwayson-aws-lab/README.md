@@ -1,4 +1,4 @@
-# SQL Server Always On Availability Group on AWS EC2 — fully automated lab
+# SQL Server Always On Availability Group on AWS EC2 — fully automated
 
 Deploy a **2-node SQL Server Always On Availability Group** (Windows Server Failover Cluster, Active Directory, multi-subnet listener, automatic failover) on AWS EC2 with **one command**, then practice failovers, readable secondaries and recovery scenarios. Tear it all down with another command.
 
