@@ -383,26 +383,56 @@
   <section class="panel" id="projects">
     <div class="wrap">
       <p class="section-tag">-- selected_projects</p>
-      <h2>Highly available SQL Server</h2>
-      <article class="project-card">
-        <h3>Always On Availability Group on AWS EC2</h3>
-        <p>Architected and automated a 2-node SQL Server Always On Availability Group on AWS EC2:
-          Active Directory, a multi-subnet Windows Server Failover Cluster with file-share witness,
-          automatic failover and a multi-subnet listener, provisioned end to end with a single
-          AWS CLI and Systems Manager script. Documented with a step-by-step runbook and a
-          troubleshooting guide.</p>
-        <ul class="tag-list">
-          <li>AWS EC2</li>
-          <li>Systems Manager</li>
-          <li>SQL Server Always On</li>
-          <li>Windows Failover Clustering</li>
-          <li>Active Directory</li>
-          <li>PowerShell</li>
-          <li>Bash</li>
-        </ul>
-        <p class="project-link"><a href="https://github.com/glopezch78/portfolio/tree/main/aws-ec2-sql-server-ha"
-              target="_blank" rel="noopener">View the project on GitHub &rarr;</a></p>
-      </article>
+      <h2>Database engineering projects</h2>
+      <div class="project-grid">
+        <article class="project-card">
+          <h3>Always On Availability Group on AWS EC2</h3>
+          <p>Architected and automated a 2-node SQL Server Always On Availability Group on AWS EC2:
+            Active Directory, a multi-subnet Windows Server Failover Cluster with file-share witness,
+            automatic failover and a multi-subnet listener, provisioned end to end with a single
+            AWS CLI and Systems Manager script. Documented with a step-by-step runbook and a
+            troubleshooting guide.</p>
+          <ul class="tag-list">
+            <li>AWS EC2</li>
+            <li>Systems Manager</li>
+            <li>SQL Server Always On</li>
+            <li>Windows Failover Clustering</li>
+            <li>Active Directory</li>
+            <li>PowerShell</li>
+            <li>Bash</li>
+          </ul>
+          <p class="project-link"><a href="https://github.com/glopezch78/portfolio/tree/main/aws-ec2-sql-server-ha"
+                target="_blank" rel="noopener">View the project on GitHub &rarr;</a></p>
+        </article>
+        <article class="project-card">
+          <h3>Storage Growth Forecast</h3>
+          <p>A single-page tool that forecasts storage growth from usage history.</p>
+          <ul class="project-points">
+            <li>Paste or upload a CSV with a date column and a used-space column.</li>
+            <li>Set usable capacity, unit (GB/TB/PB), forecast horizon in months, and an alert threshold.</li>
+            <li>Fits linear and compounding growth trends and shows when each reaches the threshold and full capacity.</li>
+          </ul>
+          <p>Runs entirely in the browser: no build step or dependencies, and all calculations run
+            locally in the page.</p>
+          <h4 class="project-sub">CSV format</h4>
+<pre class="project-code">date,used_tb
+2025-04-01,38.6
+2025-05-01,39.4</pre>
+          <p class="project-note">A header row is optional. At least 3 rows spanning 3 weeks or more are required.</p>
+          <ul class="tag-list">
+            <li>JavaScript</li>
+            <li>HTML &amp; CSS</li>
+            <li>SVG charting</li>
+            <li>Capacity planning</li>
+            <li>Linear &amp; compound growth models</li>
+          </ul>
+          <p class="project-link">
+            <a href="storage-growth-forecast/">Open the tool &rarr;</a>
+            <a href="https://github.com/glopezch78/portfolio/tree/main/storage-growth-forecast"
+               target="_blank" rel="noopener">View source on GitHub &rarr;</a>
+          </p>
+        </article>
+      </div>
     </div>
   </section>
 

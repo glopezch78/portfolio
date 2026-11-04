@@ -369,12 +369,20 @@ img { max-width: 100%; display: block; }
 }
 
 /* Projects */
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
+}
 .project-card {
   background: var(--bg-raised);
   border: 1px solid var(--border-soft);
   border-radius: 10px;
   padding: 26px;
-  max-width: 860px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 .project-card h3 {
   font-size: 1.05rem;
@@ -386,8 +394,42 @@ img { max-width: 100%; display: block; }
   font-size: 0.97rem;
   margin: 0 0 18px;
 }
+.project-points {
+  margin: 0 0 18px;
+  padding-left: 20px;
+  list-style: disc;
+  color: var(--text-secondary);
+  font-size: 0.97rem;
+}
+.project-points li { margin-bottom: 6px; }
+.project-points li::marker { color: var(--accent-teal-dim); }
+.project-sub {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin: 4px 0 8px;
+  font-weight: 500;
+}
+.project-code {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  background: var(--bg-panel-alt);
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin: 0 0 10px;
+  overflow-x: auto;
+}
+.project-card .project-note { font-size: 0.88rem; }
 .project-card .tag-list { margin-bottom: 20px; }
-.project-card .project-link { margin: 0; }
+.project-card .project-link {
+  margin: auto 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+}
 .project-card .project-link a {
   color: var(--accent-teal);
   text-decoration: none;
@@ -395,6 +437,9 @@ img { max-width: 100%; display: block; }
   font-weight: 500;
 }
 .project-card .project-link a:hover { border-bottom-color: var(--accent-teal); }
+@media (max-width: 900px) {
+  .project-grid { grid-template-columns: 1fr; }
+}
 
 /* Expertise */
 .expertise-grid {
